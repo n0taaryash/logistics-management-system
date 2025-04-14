@@ -244,6 +244,110 @@
             font-size: 13px;
         }
     </style>
+    <script>
+        // Function to load bill data and populate fields
+        document.addEventListener('DOMContentLoaded', function() {
+            // Get data from localStorage
+            const billDataString = localStorage.getItem('billData');
+            if (!billDataString) {
+                alert('No bill data found. Please fill the form first.');
+                return;
+            }
+            
+            const billData = JSON.parse(billDataString);
+            
+            // Populate bill to section
+            document.querySelector('.bill-to-content').textContent = billData.toMs;
+            
+            // Populate bill details
+            document.querySelectorAll('.bill-value')[0].textContent = billData.billNo;
+            document.querySelectorAll('.bill-value')[1].textContent = billData.date;
+            
+            // Clear existing rows except the template and total row
+            const tableBody = document.querySelector('table tbody');
+            const totalRow = tableBody.querySelector('.total-row');
+            
+            // Remove all rows except the total row
+            while (tableBody.firstChild) {
+                if (tableBody.firstChild === totalRow) {
+                    break;
+                }
+                tableBody.removeChild(tableBody.firstChild);
+            }
+            
+            // Add rows from billData
+            billData.items.forEach((item, index) => {
+                const newRow = document.createElement('tr');
+                if (item.lrNo && item.vehicleNo) {
+                    newRow.innerHTML = `
+                        <td>${item.srNo}</td>
+                        <td>${item.lrNo}</td>
+                        <td>${item.date}</td>
+                        <td>${item.vehicleNo}</td>
+                        <td>${item.destination}</td>
+                        <td>${item.invoiceNo}</td>
+                        <td>${item.weight}</td>
+                        <td>${item.rate}</td>
+                        <td>${item.extra || '-'}</td>
+                        <td>${item.total}</td>
+                    `;
+                } else {
+                    newRow.className = 'empty-row';
+                    newRow.innerHTML = `
+                        <td>${item.srNo}</td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                    `;
+                }
+                tableBody.insertBefore(newRow, totalRow);
+            });
+            
+            // Fill remaining empty rows if needed
+            while (tableBody.querySelectorAll('tr:not(.total-row)').length < 5) {
+                const emptyRow = document.createElement('tr');
+                emptyRow.className = 'empty-row';
+                const rowNum = tableBody.querySelectorAll('tr:not(.total-row)').length + 1;
+                emptyRow.innerHTML = `
+                    <td>${rowNum}</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                `;
+                tableBody.insertBefore(emptyRow, totalRow);
+            }
+            
+            // Update total cell
+            document.querySelector('.total-cell').textContent = billData.grandTotal;
+            
+            // Update amount in words and total amount
+            document.querySelector('.in-words-content').textContent = billData.amountInWords;
+            
+            // Format the total amount with commas
+            const formattedTotal = Number(billData.grandTotal).toLocaleString('en-IN');
+            document.querySelector('.total-amount-value').textContent = `₹ ${formattedTotal}`;
+            
+            // After a short delay, trigger print if this is a print request
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('print') === 'true') {
+                setTimeout(() => {
+                    window.print();
+                }, 1000);
+            }
+        });
+    </script>
 </head>
 <body>
     <div class="invoice">
