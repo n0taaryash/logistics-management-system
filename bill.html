@@ -338,25 +338,65 @@
         tfoot {
             display: table-footer-group;
         }
+        
+        /* Special class for elements that should only be visible on screen, not in print */
+        .screen-only {
+            display: block;
+        }
+        
+        @media print {
+            .screen-only {
+                display: none !important;
+            }
+        }
+        
+        .prepared-checked {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #7f8c8d;
+        }
     </style>
     <script src="js/api-service.js"></script>
     <script>
+        // Function to get URL parameters
+        function getUrlParameter(name) {
+            name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
+            var regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
+            var results = regex.exec(location.search);
+            return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+        }
+        
+        // Function to fetch bill data by ID
+        async function fetchBillById(id) {
+            try {
+                const response = await fetch(`/api/bills/${id}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error ${response.status}`);
+                }
+                return await response.json();
+            } catch (error) {
+                console.error('Error fetching bill:', error);
+                return null;
+            }
+        }
+        
         // Function to load bill data and populate fields
         document.addEventListener('DOMContentLoaded', async function() {
             // Get bill ID from URL
-            const urlParams = new URLSearchParams(window.location.search);
-            const billId = urlParams.get('id');
+            const billId = getUrlParameter('id');
             
             if (!billId) {
                 alert('No bill ID provided. Please select a bill from the dashboard.');
+                window.location.href = 'index.html';
                 return;
             }
             
-            // Fetch bill data from server
+            // Fetch bill data from API
             const billData = await fetchBillById(billId);
             
             if (!billData) {
                 alert('Bill not found. Please select a valid bill from the dashboard.');
+                window.location.href = 'index.html';
                 return;
             }
             
@@ -367,15 +407,28 @@
             document.querySelectorAll('.bill-value')[0].textContent = billData.billNo;
             document.querySelectorAll('.bill-value')[1].textContent = billData.date;
             
+            // Get "Checked By" and "Prepared By" values (visible only in digital view)
+            const checkedBy = billData.checkedBy || 'ADMIN';
+            const preparedBy = billData.preparedBy || 'ARC';
+            
+            // Add "Checked By" and "Prepared By" to the signature section
+            const signatureSection = document.querySelector('.signatures');
+            
+            // Create and add prepared/checked info (only shown on screen)
+            const preparedCheckedDiv = document.createElement('div');
+            preparedCheckedDiv.className = 'prepared-checked screen-only';
+            preparedCheckedDiv.innerHTML = `
+                <div><strong>Checked By:</strong> ${checkedBy}</div>
+                <div><strong>Prepared By:</strong> ${preparedBy}</div>
+            `;
+            signatureSection.insertBefore(preparedCheckedDiv, signatureSection.firstChild);
+            
             // Clear existing rows except the total row
             const tableBody = document.querySelector('table tbody');
             const totalRow = tableBody.querySelector('.total-row');
             
             // Remove all rows except the total row
-            while (tableBody.firstChild) {
-                if (tableBody.firstChild === totalRow) {
-                    break;
-                }
+            while (tableBody.firstChild && tableBody.firstChild !== totalRow) {
                 tableBody.removeChild(tableBody.firstChild);
             }
             
@@ -444,43 +497,21 @@
             document.querySelector('.total-amount-value').textContent = `₹ ${formattedTotal}`;
             
             // Add print controls
-            addPrintControls();
+            addPrintControls(billId);
             
             // After a short delay, trigger print if this is a print request
+            const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.get('print') === 'true') {
                 setTimeout(() => {
                     window.print();
                 }, 1000);
             }
-
-            // Load signatures for digital view, but will be excluded from print
-            const checkedBySignature = document.getElementById('checkedBySignature');
-            const preparedBySignature = document.getElementById('preparedBySignature');
-            const signatureImage = document.getElementById('signatureImage');
-            
-            // Get values from localStorage
-            const checkedBy = localStorage.getItem('checkedBy') || 'ADMIN';
-            const preparedBy = localStorage.getItem('preparedBy') || 'ARC';
-            
-            checkedBySignature.textContent = `Checked By: ${checkedBy}`;
-            preparedBySignature.textContent = `Prepared By: ${preparedBy}`;
-            
-            // Load signature image
-            try {
-                const img = document.createElement('img');
-                img.src = `/images/signature.png?t=${new Date().getTime()}`; // Prevent caching
-                img.style.width = '100px';
-                img.style.height = 'auto';
-                signatureImage.appendChild(img);
-            } catch (error) {
-                console.error('Error loading signature image:', error);
-            }
         });
         
         // Add print controls to the page
-        function addPrintControls() {
+        function addPrintControls(billId) {
             const printControlsDiv = document.createElement('div');
-            printControlsDiv.className = 'print-controls no-print';
+            printControlsDiv.className = 'print-controls screen-only';
             printControlsDiv.style.cssText = `
                 position: fixed;
                 top: 20px;
@@ -528,6 +559,22 @@
                 window.print();
             });
             
+            const downloadButton = document.createElement('button');
+            downloadButton.textContent = 'Download Bill';
+            downloadButton.style.cssText = `
+                background-color: #e74c3c;
+                color: white;
+                border: none;
+                padding: 10px 15px;
+                border-radius: 4px;
+                cursor: pointer;
+                font-weight: 600;
+                transition: background-color 0.3s;
+            `;
+            downloadButton.addEventListener('click', () => {
+                window.location.href = `/api/bills/${billId}/download`;
+            });
+            
             const backButton = document.createElement('button');
             backButton.textContent = 'Back to Dashboard';
             backButton.style.cssText = `
@@ -546,6 +593,7 @@
             
             printControlsDiv.appendChild(printButton);
             printControlsDiv.appendChild(saveAsPdfButton);
+            printControlsDiv.appendChild(downloadButton);
             printControlsDiv.appendChild(backButton);
             
             document.body.appendChild(printControlsDiv);

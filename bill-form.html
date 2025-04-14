@@ -138,6 +138,17 @@
                         <input type="date" id="date" name="date" required>
                     </div>
                 </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="checkedBy">Checked By:</label>
+                        <input type="text" id="checkedBy" name="checkedBy" placeholder="Person who checked the bill">
+                    </div>
+                    <div class="form-group">
+                        <label for="preparedBy">Prepared By:</label>
+                        <input type="text" id="preparedBy" name="preparedBy" placeholder="Person who prepared the bill">
+                    </div>
+                </div>
             </div>
 
             <div class="form-section">
@@ -403,6 +414,10 @@
                 return words.trim() + ' ONLY';
             }
             
+            // Also load and set default values for checkedBy and preparedBy
+            document.getElementById('checkedBy').value = localStorage.getItem('checkedBy') || 'ADMIN';
+            document.getElementById('preparedBy').value = localStorage.getItem('preparedBy') || 'ARC';
+            
             // Form submission handler
             form.addEventListener('submit', async function(e) {
                 e.preventDefault();
@@ -414,6 +429,8 @@
                     toMs: formData.get('toMs'),
                     billNo: formData.get('billNo'),
                     date: formatDate(formData.get('date')),
+                    checkedBy: formData.get('checkedBy') || 'ADMIN',
+                    preparedBy: formData.get('preparedBy') || 'ARC',
                     createdAt: new Date().toISOString(),
                     items: [],
                     grandTotal: document.getElementById('grandTotal').value,

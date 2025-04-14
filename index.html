@@ -882,6 +882,14 @@
                             <div class="bill-detail-label">Amount in Words</div>
                             <div class="bill-detail-value">${bill.amountInWords}</div>
                         </div>
+                        <div class="bill-detail-group">
+                            <div class="bill-detail-label">Checked By</div>
+                            <div class="bill-detail-value">${bill.checkedBy || 'ADMIN'}</div>
+                        </div>
+                        <div class="bill-detail-group">
+                            <div class="bill-detail-label">Prepared By</div>
+                            <div class="bill-detail-value">${bill.preparedBy || 'ARC'}</div>
+                        </div>
                     </div>
                     
                     <h3>Items</h3>

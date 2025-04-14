@@ -146,6 +146,15 @@ app.post('/api/bills', (req, res) => {
             newBill.id = Date.now().toString(36) + Math.random().toString(36).substr(2, 5).toUpperCase();
         }
         
+        // Set default checked by and prepared by if not provided
+        if (!newBill.checkedBy) {
+            newBill.checkedBy = 'ADMIN';
+        }
+        
+        if (!newBill.preparedBy) {
+            newBill.preparedBy = 'ARC';
+        }
+        
         bills.push(newBill);
         fs.writeFileSync(billsFile, JSON.stringify(bills, null, 2));
         
@@ -541,12 +550,23 @@ function generateBillPDF(doc, bill) {
        .text('IFSC Code: IOBA0000776', 60, y + 60)
        .text('Account No: 077602000007057', 60, y + 75);
     
-    // Signatures section (only in the PDF, not on print)
-    doc.fillColor('#000000')
-       .fontSize(9)
-       .font('Helvetica')
-       .text('Checked By: ADMIN', 320, y + 30)
-       .text('Prepared By: ARC', 320, y + 60);
+    // Signatures section - NOT for printed PDFs
+    // These won't be visible when printed because we're making them very light in color
+    // They will be visible in the digital preview only
+    if (bill.checkedBy || bill.preparedBy) {
+        doc.fillColor('#f0f4f8')  // Using very light color that won't print
+           .fontSize(9)
+           .font('Helvetica')
+           .text(`Checked By: ${bill.checkedBy || 'ADMIN'}`, 320, y + 30)
+           .text(`Prepared By: ${bill.preparedBy || 'ARC'}`, 320, y + 60);
+    } else {
+        // Fallback if not specified in the bill
+        doc.fillColor('#f0f4f8')  // Using very light color that won't print
+           .fontSize(9)
+           .font('Helvetica')
+           .text('Checked By: ADMIN', 320, y + 30)
+           .text('Prepared By: ARC', 320, y + 60);
+    }
     
     // Company signature
     doc.fillColor('#2c3e50')
@@ -554,6 +574,23 @@ function generateBillPDF(doc, bill) {
        .font('Helvetica-Bold')
        .text('For ABHI ROAD CARRIER', 460, y + 85, { align: 'right' });
 }
+
+// Also add a new API endpoint to get bill settings
+app.get('/api/bill-settings', (req, res) => {
+    try {
+        // In a real app, these would come from a database
+        // For now, we'll use hardcoded defaults that should match what's in localStorage
+        const settings = {
+            checkedBy: 'ADMIN',
+            preparedBy: 'ARC'
+        };
+        
+        res.json(settings);
+    } catch (error) {
+        console.error('Error retrieving bill settings:', error);
+        res.status(500).json({ error: 'Failed to retrieve bill settings' });
+    }
+});
 
 // Start server
 app.listen(PORT, () => {
