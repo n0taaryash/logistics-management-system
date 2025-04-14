@@ -243,18 +243,122 @@
             color: #2c3e50;
             font-size: 13px;
         }
+        
+        /* Print-specific styles */
+        @media print {
+            @page {
+                size: A4 portrait;
+                margin: 0;
+            }
+            
+            body {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+                background-color: white !important;
+                width: 210mm;
+                height: 297mm;
+            }
+            
+            .invoice {
+                padding: 10mm 8mm;
+                height: 100%;
+                box-sizing: border-box;
+                background-color: #ffffff;
+                box-shadow: none !important;
+            }
+            
+            .header {
+                border-bottom-color: #2c3e50 !important;
+            }
+            
+            .pan-number, .gstin {
+                background-color: #f0f4f8 !important;
+            }
+            
+            .bill-to, .bill-details {
+                background-color: #f0f4f8 !important;
+            }
+            
+            .bill-to-content {
+                background-color: #ffffff !important;
+            }
+            
+            thead {
+                background-color: #2c3e50 !important;
+                color: #ffffff !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            
+            tr:nth-child(even) {
+                background-color: #f5f7fa !important;
+            }
+            
+            .total-row {
+                background-color: #f0f4f8 !important;
+            }
+            
+            .in-words, .bank-details {
+                background-color: #f0f4f8 !important;
+            }
+            
+            .total-amount {
+                background-color: #2c3e50 !important;
+                color: #ffffff !important;
+            }
+            
+            /* Hide any elements not needed in print */
+            .no-print {
+                display: none !important;
+            }
+        }
+        
+        /* High-resolution styles for better printed output */
+        .invoice {
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        
+        .header, .bill-section, .footer {
+            page-break-inside: avoid;
+        }
+        
+        table {
+            page-break-inside: auto;
+        }
+        
+        tr {
+            page-break-inside: avoid;
+            page-break-after: auto;
+        }
+        
+        thead {
+            display: table-header-group;
+        }
+        
+        tfoot {
+            display: table-footer-group;
+        }
     </style>
+    <script src="js/api-service.js"></script>
     <script>
         // Function to load bill data and populate fields
-        document.addEventListener('DOMContentLoaded', function() {
-            // Get data from localStorage
-            const billDataString = localStorage.getItem('billData');
-            if (!billDataString) {
-                alert('No bill data found. Please fill the form first.');
+        document.addEventListener('DOMContentLoaded', async function() {
+            // Get bill ID from URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const billId = urlParams.get('id');
+            
+            if (!billId) {
+                alert('No bill ID provided. Please select a bill from the dashboard.');
                 return;
             }
             
-            const billData = JSON.parse(billDataString);
+            // Fetch bill data from server
+            const billData = await fetchBillById(billId);
+            
+            if (!billData) {
+                alert('Bill not found. Please select a valid bill from the dashboard.');
+                return;
+            }
             
             // Populate bill to section
             document.querySelector('.bill-to-content').textContent = billData.toMs;
@@ -263,7 +367,7 @@
             document.querySelectorAll('.bill-value')[0].textContent = billData.billNo;
             document.querySelectorAll('.bill-value')[1].textContent = billData.date;
             
-            // Clear existing rows except the template and total row
+            // Clear existing rows except the total row
             const tableBody = document.querySelector('table tbody');
             const totalRow = tableBody.querySelector('.total-row');
             
@@ -339,15 +443,115 @@
             const formattedTotal = Number(billData.grandTotal).toLocaleString('en-IN');
             document.querySelector('.total-amount-value').textContent = `₹ ${formattedTotal}`;
             
+            // Add print controls
+            addPrintControls();
+            
             // After a short delay, trigger print if this is a print request
-            const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.get('print') === 'true') {
                 setTimeout(() => {
                     window.print();
                 }, 1000);
             }
+
+            // Load signatures for digital view, but will be excluded from print
+            const checkedBySignature = document.getElementById('checkedBySignature');
+            const preparedBySignature = document.getElementById('preparedBySignature');
+            const signatureImage = document.getElementById('signatureImage');
+            
+            // Get values from localStorage
+            const checkedBy = localStorage.getItem('checkedBy') || 'ADMIN';
+            const preparedBy = localStorage.getItem('preparedBy') || 'ARC';
+            
+            checkedBySignature.textContent = `Checked By: ${checkedBy}`;
+            preparedBySignature.textContent = `Prepared By: ${preparedBy}`;
+            
+            // Load signature image
+            try {
+                const img = document.createElement('img');
+                img.src = `/images/signature.png?t=${new Date().getTime()}`; // Prevent caching
+                img.style.width = '100px';
+                img.style.height = 'auto';
+                signatureImage.appendChild(img);
+            } catch (error) {
+                console.error('Error loading signature image:', error);
+            }
         });
+        
+        // Add print controls to the page
+        function addPrintControls() {
+            const printControlsDiv = document.createElement('div');
+            printControlsDiv.className = 'print-controls no-print';
+            printControlsDiv.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background-color: #2c3e50;
+                color: white;
+                padding: 15px;
+                border-radius: 8px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+                z-index: 1000;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+            `;
+            
+            const printButton = document.createElement('button');
+            printButton.textContent = 'Print Bill';
+            printButton.style.cssText = `
+                background-color: #3498db;
+                color: white;
+                border: none;
+                padding: 10px 15px;
+                border-radius: 4px;
+                cursor: pointer;
+                font-weight: 600;
+                transition: background-color 0.3s;
+            `;
+            printButton.addEventListener('click', () => {
+                window.print();
+            });
+            
+            const saveAsPdfButton = document.createElement('button');
+            saveAsPdfButton.textContent = 'Save as PDF';
+            saveAsPdfButton.style.cssText = `
+                background-color: #2ecc71;
+                color: white;
+                border: none;
+                padding: 10px 15px;
+                border-radius: 4px;
+                cursor: pointer;
+                font-weight: 600;
+                transition: background-color 0.3s;
+            `;
+            saveAsPdfButton.addEventListener('click', () => {
+                window.print();
+            });
+            
+            const backButton = document.createElement('button');
+            backButton.textContent = 'Back to Dashboard';
+            backButton.style.cssText = `
+                background-color: #7f8c8d;
+                color: white;
+                border: none;
+                padding: 10px 15px;
+                border-radius: 4px;
+                cursor: pointer;
+                font-weight: 600;
+                transition: background-color 0.3s;
+            `;
+            backButton.addEventListener('click', () => {
+                window.location.href = 'index.html';
+            });
+            
+            printControlsDiv.appendChild(printButton);
+            printControlsDiv.appendChild(saveAsPdfButton);
+            printControlsDiv.appendChild(backButton);
+            
+            document.body.appendChild(printControlsDiv);
+        }
     </script>
+    <title>Abhi Road Carrier - Bill</title>
 </head>
 <body>
     <div class="invoice">
@@ -485,13 +689,14 @@
                 </div>
             </div>
             <div class="signatures">
-                <div class="signature">
-                    <div class="signature-line">Checked By: ADMIN</div>
+                <div class="signature no-print">
+                    <div class="signature-line" id="checkedBySignature">Checked By: ADMIN</div>
                 </div>
-                <div class="signature">
-                    <div class="signature-line">Prepared By: ARC</div>
+                <div class="signature no-print">
+                    <div class="signature-line" id="preparedBySignature">Prepared By: ARC</div>
                 </div>
                 <div class="company-signature">
+                    <div class="signature-img" id="signatureImage"></div>
                     <div class="company-signature-line">For ABHI ROAD CARRIER</div>
                 </div>
             </div>

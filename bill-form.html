@@ -116,6 +116,7 @@
             cursor: not-allowed;
         }
     </style>
+    <script src="js/api-service.js"></script>
 </head>
 <body>
     <h1>Bill Generation Form</h1>
@@ -196,10 +197,88 @@
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() {
             const itemsTableBody = document.getElementById('itemsTableBody');
             const addRowButton = document.getElementById('addRow');
             const form = document.getElementById('billForm');
+            
+            // Check if we're editing an existing bill
+            const urlParams = new URLSearchParams(window.location.search);
+            const isEdit = urlParams.get('edit') === 'true';
+            let editBillId = null;
+            
+            // Load bill data if editing
+            if (isEdit) {
+                editBillId = urlParams.get('id');
+                if (editBillId) {
+                    const bill = await fetchBillById(editBillId);
+                    if (bill) {
+                        populateFormWithBillData(bill);
+                    } else {
+                        alert('Bill not found. Creating a new bill instead.');
+                    }
+                }
+            } else {
+                // For new bills, generate a bill number
+                document.getElementById('billNo').value = await generateBillNumber();
+            }
+            
+            // Populate form with bill data for editing
+            function populateFormWithBillData(bill) {
+                document.getElementById('toMs').value = bill.toMs;
+                document.getElementById('billNo').value = bill.billNo;
+                
+                // Convert date format from DD.MM.YYYY to YYYY-MM-DD for input[type=date]
+                const dateParts = bill.date.split('.');
+                if (dateParts.length === 3) {
+                    const formattedDate = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
+                    document.getElementById('date').value = formattedDate;
+                }
+                
+                // Remove existing rows except the first one
+                while (itemsTableBody.rows.length > 1) {
+                    itemsTableBody.deleteRow(itemsTableBody.rows.length - 1);
+                }
+                
+                // Populate items
+                bill.items.forEach((item, index) => {
+                    if (index === 0) {
+                        // Populate first row
+                        const firstRow = itemsTableBody.rows[0];
+                        populateRowWithItemData(firstRow, item);
+                    } else {
+                        // Add new rows for additional items
+                        addRowButton.click();
+                        const newRow = itemsTableBody.rows[itemsTableBody.rows.length - 1];
+                        populateRowWithItemData(newRow, item);
+                    }
+                });
+                
+                // Calculate totals
+                calculateGrandTotal();
+            }
+            
+            // Populate a table row with item data
+            function populateRowWithItemData(row, item) {
+                row.querySelector('[name="lrNo"]').value = item.lrNo || '';
+                
+                // Convert date format from DD.MM.YYYY to YYYY-MM-DD for input[type=date]
+                if (item.date) {
+                    const dateParts = item.date.split('.');
+                    if (dateParts.length === 3) {
+                        const formattedDate = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
+                        row.querySelector('[name="itemDate"]').value = formattedDate;
+                    }
+                }
+                
+                row.querySelector('[name="vehicleNo"]').value = item.vehicleNo || '';
+                row.querySelector('[name="destination"]').value = item.destination || '';
+                row.querySelector('[name="invoiceNo"]').value = item.invoiceNo || '';
+                row.querySelector('[name="weight"]').value = item.weight || '';
+                row.querySelector('[name="rate"]').value = item.rate || '';
+                row.querySelector('[name="extra"]').value = item.extra || '0';
+                row.querySelector('[name="total"]').value = item.total || '';
+            }
             
             // Add new row to the table
             addRowButton.addEventListener('click', function() {
@@ -325,13 +404,13 @@
             }
             
             // Form submission handler
-            form.addEventListener('submit', function(e) {
+            form.addEventListener('submit', async function(e) {
                 e.preventDefault();
                 
                 // Create form data object
                 const formData = new FormData(form);
                 const billData = {
-                    id: generateUniqueId(),
+                    id: editBillId || undefined, // Use existing ID if editing
                     toMs: formData.get('toMs'),
                     billNo: formData.get('billNo'),
                     date: formatDate(formData.get('date')),
@@ -359,59 +438,60 @@
                     });
                 }
                 
-                // Store the current bill data in localStorage for bill generation
-                localStorage.setItem('billData', JSON.stringify(billData));
-                
-                // Save to bill records for admin dashboard
-                saveToRecords(billData);
-                
-                // Open the bill in a new window
-                window.open('bill.html', '_blank');
-                
-                // Reset form after successful submission
-                form.reset();
-                
-                // Reset table to initial state
-                while (itemsTableBody.rows.length > 1) {
-                    itemsTableBody.removeChild(itemsTableBody.lastChild);
+                try {
+                    // Save bill to server
+                    let savedBill;
+                    if (editBillId) {
+                        savedBill = await updateBill(editBillId, billData);
+                    } else {
+                        savedBill = await createBill(billData);
+                    }
+                    
+                    if (savedBill) {
+                        // Open the bill in a new window
+                        window.open(`bill.html?id=${savedBill.id}`, '_blank');
+                        
+                        // Reset form for new entry or redirect to dashboard if editing
+                        if (editBillId) {
+                            window.location.href = 'index.html';
+                        } else {
+                            form.reset();
+                            
+                            // Reset table to initial state
+                            while (itemsTableBody.rows.length > 1) {
+                                itemsTableBody.removeChild(itemsTableBody.lastChild);
+                            }
+                            
+                            // Reset the first row values
+                            const firstRow = itemsTableBody.querySelector('tr');
+                            firstRow.querySelector('[name="lrNo"]').value = '';
+                            firstRow.querySelector('[name="itemDate"]').value = '';
+                            firstRow.querySelector('[name="vehicleNo"]').value = '';
+                            firstRow.querySelector('[name="destination"]').value = '';
+                            firstRow.querySelector('[name="invoiceNo"]').value = '';
+                            firstRow.querySelector('[name="weight"]').value = '';
+                            firstRow.querySelector('[name="rate"]').value = '';
+                            firstRow.querySelector('[name="extra"]').value = '0';
+                            firstRow.querySelector('[name="total"]').value = '';
+                            
+                            // Reset grand total and amount in words
+                            document.getElementById('grandTotal').value = '';
+                            document.getElementById('amountInWords').value = '';
+                            
+                            // Set new bill number
+                            document.getElementById('billNo').value = await generateBillNumber();
+                        }
+                        
+                        // Show success message
+                        alert('Bill saved successfully!');
+                    } else {
+                        alert('Failed to save bill. Please try again.');
+                    }
+                } catch (error) {
+                    console.error('Error saving bill:', error);
+                    alert('An error occurred while saving the bill. Please try again.');
                 }
-                
-                // Reset the first row values
-                const firstRow = itemsTableBody.querySelector('tr');
-                firstRow.querySelector('[name="lrNo"]').value = '';
-                firstRow.querySelector('[name="itemDate"]').value = '';
-                firstRow.querySelector('[name="vehicleNo"]').value = '';
-                firstRow.querySelector('[name="destination"]').value = '';
-                firstRow.querySelector('[name="invoiceNo"]').value = '';
-                firstRow.querySelector('[name="weight"]').value = '';
-                firstRow.querySelector('[name="rate"]').value = '';
-                firstRow.querySelector('[name="extra"]').value = '0';
-                firstRow.querySelector('[name="total"]').value = '';
-                
-                // Reset grand total and amount in words
-                document.getElementById('grandTotal').value = '';
-                document.getElementById('amountInWords').value = '';
-                
-                // Show success message
-                alert('Bill generated successfully and saved to records!');
             });
-            
-            // Save bill data to records in localStorage
-            function saveToRecords(billData) {
-                // Get existing records
-                let records = JSON.parse(localStorage.getItem('billRecords') || '[]');
-                
-                // Add new record
-                records.push(billData);
-                
-                // Save back to localStorage
-                localStorage.setItem('billRecords', JSON.stringify(records));
-            }
-            
-            // Generate a unique ID for each bill
-            function generateUniqueId() {
-                return Date.now().toString(36) + Math.random().toString(36).substr(2, 5).toUpperCase();
-            }
             
             // Format date to DD.MM.YYYY
             function formatDate(dateString) {

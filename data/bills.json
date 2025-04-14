@@ -1,0 +1,48 @@
+[
+  {
+    "toMs": "edXtra",
+    "billNo": "192008",
+    "date": "14.04.2025",
+    "createdAt": "2025-04-14T15:51:07.420Z",
+    "items": [
+      {
+        "srNo": 1,
+        "lrNo": "19",
+        "date": "14.04.2025",
+        "vehicleNo": "MH15 JD 7545",
+        "destination": "PUNE",
+        "invoiceNo": "192008",
+        "weight": "68",
+        "rate": "1000",
+        "extra": "0",
+        "total": "68000"
+      }
+    ],
+    "grandTotal": "68000",
+    "amountInWords": "SIXTY EIGHT THOUSAND ONLY",
+    "id": "m9h93quo34HYC"
+  },
+  {
+    "id": "m9h9540041NEY",
+    "toMs": "edXtra Tech",
+    "billNo": "26042008",
+    "date": "14.04.2025",
+    "createdAt": "2025-04-14T16:02:25.201Z",
+    "items": [
+      {
+        "srNo": 1,
+        "lrNo": "19",
+        "date": "02.04.2025",
+        "vehicleNo": "MH15 JD 7545",
+        "destination": "PUNE",
+        "invoiceNo": "192008",
+        "weight": "50",
+        "rate": "1200",
+        "extra": "0",
+        "total": "60000"
+      }
+    ],
+    "grandTotal": "60000",
+    "amountInWords": "SIXTY THOUSAND ONLY"
+  }
+]

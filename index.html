@@ -383,6 +383,7 @@
             }
         }
     </style>
+    <script src="js/api-service.js"></script>
 </head>
 <body>
     <div class="dashboard">
@@ -440,6 +441,7 @@
                 <input type="text" class="search-input" id="searchInput" placeholder="Search by bill number, client name, vehicle number...">
                 <button class="search-button" id="searchButton">Search</button>
                 <button class="action-button export-button" id="exportButton">Export to Excel</button>
+                <button class="action-button download-button" id="downloadSelectedButton" style="background-color: #9b59b6; display: none;">Download Selected</button>
                 <button class="action-button new-bill-button" id="newBillButton">Create New Bill</button>
             </div>
             
@@ -476,6 +478,7 @@
             <table class="bills-table" id="billsTable">
                 <thead>
                     <tr>
+                        <th><input type="checkbox" id="selectAllBills"></th>
                         <th>Bill No.</th>
                         <th>Date</th>
                         <th>Client</th>
@@ -547,20 +550,23 @@
             const downloadBillPDF = document.getElementById('downloadBillPDF');
             const printBill = document.getElementById('printBill');
             const viewFullBill = document.getElementById('viewFullBill');
+            const downloadSelectedButton = document.getElementById('downloadSelectedButton');
+            const selectAllBills = document.getElementById('selectAllBills');
             
             // Pagination settings
             const recordsPerPage = 10;
             let currentPage = 1;
             let filteredRecords = [];
+            let selectedBills = [];
             
-            // Load bill records from localStorage
-            function loadBillRecords() {
-                return JSON.parse(localStorage.getItem('billRecords') || '[]');
+            // Load bill records from server instead of localStorage
+            async function loadBillRecords() {
+                return await fetchBills();
             }
             
             // Initialize dashboard
-            function initDashboard() {
-                const records = loadBillRecords();
+            async function initDashboard() {
+                const records = await loadBillRecords();
                 
                 // Update stats
                 updateDashboardStats(records);
@@ -572,7 +578,7 @@
                 populateYearFilter(records);
                 
                 // Apply initial filtering and display records
-                filterAndDisplayRecords();
+                await filterAndDisplayRecords();
                 
                 // Add event listeners
                 setupEventListeners();
@@ -657,8 +663,8 @@
             }
             
             // Filter and display records
-            function filterAndDisplayRecords() {
-                const records = loadBillRecords();
+            async function filterAndDisplayRecords() {
+                const records = await loadBillRecords();
                 const searchTerm = searchInput.value.toLowerCase();
                 const selectedClient = clientFilter.value;
                 const selectedMonth = monthFilter.value;
@@ -736,6 +742,7 @@
                         const itemCount = record.items.filter(item => item.vehicleNo).length;
                         
                         row.innerHTML = `
+                            <td><input type="checkbox" class="bill-checkbox" data-id="${record.id}"></td>
                             <td>${record.billNo}</td>
                             <td>${record.date}</td>
                             <td>${record.toMs}</td>
@@ -745,12 +752,16 @@
                                 <span class="action-icon view-icon" data-id="${record.id}">👁️</span>
                                 <span class="action-icon edit-icon" data-id="${record.id}">✏️</span>
                                 <span class="action-icon delete-icon" data-id="${record.id}">🗑️</span>
+                                <span class="action-icon download-icon" data-id="${record.id}">📥</span>
                             </td>
                         `;
                         
                         billsTableBody.appendChild(row);
                     });
                 }
+                
+                // Restore selected checkboxes state
+                restoreCheckboxState();
                 
                 // Update page info
                 updatePageInfo();
@@ -914,54 +925,62 @@
             }
             
             // Delete bill record
-            function deleteBill(billId) {
+            async function deleteBill(billId) {
                 if (confirm('Are you sure you want to delete this bill? This action cannot be undone.')) {
-                    const records = loadBillRecords();
-                    const updatedRecords = records.filter(record => record.id !== billId);
-                    
-                    // Save updated records
-                    localStorage.setItem('billRecords', JSON.stringify(updatedRecords));
-                    
-                    // Refresh the dashboard
-                    initDashboard();
+                    try {
+                        const response = await fetch(`/api/bills/${billId}`, {
+                            method: 'DELETE'
+                        });
+                        
+                        if (response.ok) {
+                            alert('Bill deleted successfully!');
+                            // Refresh the dashboard
+                            await initDashboard();
+                        } else {
+                            alert('Failed to delete the bill. Please try again.');
+                        }
+                    } catch (error) {
+                        console.error('Error deleting bill:', error);
+                        alert('An error occurred while deleting the bill. Please try again.');
+                    }
                 }
             }
             
             // Setup event listeners
             function setupEventListeners() {
                 // Search button
-                searchButton.addEventListener('click', () => {
+                searchButton.addEventListener('click', async () => {
                     currentPage = 1;
-                    filterAndDisplayRecords();
+                    await filterAndDisplayRecords();
                 });
                 
                 // Enter key in search input
-                searchInput.addEventListener('keyup', event => {
+                searchInput.addEventListener('keyup', async event => {
                     if (event.key === 'Enter') {
                         currentPage = 1;
-                        filterAndDisplayRecords();
+                        await filterAndDisplayRecords();
                     }
                 });
                 
                 // Filter changes
-                clientFilter.addEventListener('change', () => {
+                clientFilter.addEventListener('change', async () => {
                     currentPage = 1;
-                    filterAndDisplayRecords();
+                    await filterAndDisplayRecords();
                 });
                 
-                monthFilter.addEventListener('change', () => {
+                monthFilter.addEventListener('change', async () => {
                     currentPage = 1;
-                    filterAndDisplayRecords();
+                    await filterAndDisplayRecords();
                 });
                 
-                yearFilter.addEventListener('change', () => {
+                yearFilter.addEventListener('change', async () => {
                     currentPage = 1;
-                    filterAndDisplayRecords();
+                    await filterAndDisplayRecords();
                 });
                 
-                sortFilter.addEventListener('change', () => {
+                sortFilter.addEventListener('change', async () => {
                     currentPage = 1;
-                    filterAndDisplayRecords();
+                    await filterAndDisplayRecords();
                 });
                 
                 // New bill button
@@ -972,6 +991,31 @@
                 // Export to Excel button
                 exportButton.addEventListener('click', () => {
                     exportToExcel();
+                });
+                
+                // Select all bills checkbox
+                selectAllBills.addEventListener('change', () => {
+                    const checkboxes = document.querySelectorAll('.bill-checkbox');
+                    checkboxes.forEach(checkbox => {
+                        checkbox.checked = selectAllBills.checked;
+                        updateSelectedBills();
+                    });
+                });
+                
+                // Individual bill checkboxes
+                billsTableBody.addEventListener('change', (e) => {
+                    if (e.target.classList.contains('bill-checkbox')) {
+                        updateSelectedBills();
+                    }
+                });
+                
+                // Download selected bills button
+                downloadSelectedButton.addEventListener('click', () => {
+                    if (selectedBills.length > 0) {
+                        downloadMultipleBills(selectedBills);
+                    } else {
+                        alert('Please select at least one bill to download.');
+                    }
                 });
                 
                 // Table row actions
@@ -987,6 +1031,9 @@
                     } else if (target.classList.contains('delete-icon')) {
                         const billId = target.dataset.id;
                         deleteBill(billId);
+                    } else if (target.classList.contains('download-icon')) {
+                        const billId = target.dataset.id;
+                        downloadBill(billId);
                     }
                 });
                 
@@ -1023,39 +1070,28 @@
             
             // Edit bill function (opens the form with prefilled data)
             function editBill(billId) {
-                // Set the bill to edit in localStorage
-                localStorage.setItem('editBillId', billId);
-                
-                // Redirect to the form page
-                window.location.href = 'bill-form.html?edit=true';
+                window.location.href = `bill-form.html?edit=true&id=${billId}`;
             }
             
             // View bill function
             function viewBill(billId) {
-                const records = loadBillRecords();
-                const bill = records.find(record => record.id === billId);
-                
-                if (!bill) {
-                    alert('Bill not found!');
-                    return;
-                }
-                
-                // Store the bill data for viewing
-                localStorage.setItem('billData', JSON.stringify(bill));
-                
-                // Open the bill in a new tab
-                window.open('bill.html', '_blank');
+                const url = `bill.html?id=${billId}`;
+                window.open(url, '_blank');
             }
             
-            // Print bill function
+            // Print bill function - improved for better printing
             function printBillFunc(billId) {
-                // Use the view bill function and then trigger print
-                viewBill(billId);
+                // Open the bill in a new tab with print parameter
+                window.open(`bill.html?id=${billId}&print=true`, '_blank');
             }
             
-            // Download PDF function (placeholder for now)
+            // Download PDF function
             function downloadPDF(billId) {
-                alert('PDF download functionality would be implemented here. For now, please use the print option to save as PDF.');
+                // For now, we use the same print method but explain to use system's save as PDF
+                printBillFunc(billId);
+                setTimeout(() => {
+                    alert('To save as PDF, select "Save as PDF" in the print dialog.');
+                }, 500);
             }
             
             // Export to Excel function
@@ -1087,6 +1123,53 @@
             // Format number with commas
             function formatNumberWithCommas(number) {
                 return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+            }
+            
+            // Update selected bills list
+            function updateSelectedBills() {
+                selectedBills = [];
+                const checkboxes = document.querySelectorAll('.bill-checkbox:checked');
+                
+                checkboxes.forEach(checkbox => {
+                    selectedBills.push(checkbox.dataset.id);
+                });
+                
+                // Show/hide download selected button
+                downloadSelectedButton.style.display = selectedBills.length > 0 ? 'block' : 'none';
+                
+                // Update select all checkbox state
+                const allCheckboxes = document.querySelectorAll('.bill-checkbox');
+                selectAllBills.checked = allCheckboxes.length > 0 && checkboxes.length === allCheckboxes.length;
+            }
+            
+            // Restore checkbox state after page change
+            function restoreCheckboxState() {
+                const checkboxes = document.querySelectorAll('.bill-checkbox');
+                checkboxes.forEach(checkbox => {
+                    checkbox.checked = selectedBills.includes(checkbox.dataset.id);
+                });
+                
+                // Update select all checkbox state
+                selectAllBills.checked = checkboxes.length > 0 && 
+                                        checkboxes.length === document.querySelectorAll('.bill-checkbox:checked').length;
+            }
+            
+            // Download single bill
+            function downloadBill(billId) {
+                const downloadFrame = document.createElement('iframe');
+                downloadFrame.style.display = 'none';
+                downloadFrame.src = `/api/bills/${billId}/download`;
+                document.body.appendChild(downloadFrame);
+                
+                // Remove the iframe after download starts
+                setTimeout(() => {
+                    document.body.removeChild(downloadFrame);
+                }, 2000);
+            }
+            
+            // Download PDF function - updated to use API endpoint
+            function downloadPDF(billId) {
+                downloadBill(billId);
             }
             
             // Initialize the dashboard
