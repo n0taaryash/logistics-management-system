@@ -47,5 +47,8 @@
       "src": "/(.*)",
       "dest": "/index.html"
     }
-  ]
+  ],
+  "installCommand": "npm install --production",
+  "buildCommand": "npm install"
 }
+
