@@ -5,6 +5,7 @@ const path = require('path');
 const cors = require('cors');
 const PDFDocument = require('pdfkit');
 const archiver = require('archiver');
+const storage = require('./storage-adapter');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -14,28 +15,19 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, '/')));
 
-// Ensure data directory exists
-const dataDir = path.join(__dirname, 'data');
-if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir);
-}
-
-const billsFile = path.join(dataDir, 'bills.json');
-
-// Initialize bills file if it doesn't exist
-if (!fs.existsSync(billsFile)) {
-    fs.writeFileSync(billsFile, JSON.stringify([]));
-}
-
 // Create images directory if it doesn't exist
 const imagesDir = path.join(__dirname, 'images');
 if (!fs.existsSync(imagesDir)) {
-    fs.mkdirSync(imagesDir);
+    try {
+        fs.mkdirSync(imagesDir);
+    } catch (error) {
+        console.error('Failed to create images directory:', error);
+    }
 }
 
 // Add multer for file uploads
 const multer = require('multer');
-const storage = multer.diskStorage({
+const storageConfig = multer.diskStorage({
     destination: function(req, file, cb) {
         cb(null, imagesDir);
     },
@@ -50,7 +42,7 @@ const storage = multer.diskStorage({
         }
     }
 });
-const upload = multer({ storage: storage });
+const upload = multer({ storage: storageConfig });
 
 // API to upload signature and stamp images
 app.post('/api/upload-images', upload.fields([
@@ -102,22 +94,21 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// API to get all bills
-app.get('/api/bills', (req, res) => {
+// API to get all bills - UPDATED
+app.get('/api/bills', async (req, res) => {
     try {
-        const bills = JSON.parse(fs.readFileSync(billsFile));
+        const bills = await storage.getAllBills();
         res.json(bills);
     } catch (error) {
-        console.error('Error reading bills file:', error);
+        console.error('Error reading bills:', error);
         res.status(500).json({ error: 'Failed to read bills' });
     }
 });
 
-// API to get a single bill by ID
-app.get('/api/bills/:id', (req, res) => {
+// API to get a single bill by ID - UPDATED
+app.get('/api/bills/:id', async (req, res) => {
     try {
-        const bills = JSON.parse(fs.readFileSync(billsFile));
-        const bill = bills.find(b => b.id === req.params.id);
+        const bill = await storage.getBillById(req.params.id);
         
         if (bill) {
             res.json(bill);
@@ -130,10 +121,9 @@ app.get('/api/bills/:id', (req, res) => {
     }
 });
 
-// API to create a new bill
-app.post('/api/bills', (req, res) => {
+// API to create a new bill - UPDATED
+app.post('/api/bills', async (req, res) => {
     try {
-        const bills = JSON.parse(fs.readFileSync(billsFile));
         const newBill = req.body;
         
         // Add timestamp if not provided
@@ -155,30 +145,24 @@ app.post('/api/bills', (req, res) => {
             newBill.preparedBy = 'ARC';
         }
         
-        bills.push(newBill);
-        fs.writeFileSync(billsFile, JSON.stringify(bills, null, 2));
-        
-        res.status(201).json(newBill);
+        const savedBill = await storage.saveBill(newBill);
+        res.status(201).json(savedBill);
     } catch (error) {
         console.error('Error saving bill:', error);
         res.status(500).json({ error: 'Failed to save bill' });
     }
 });
 
-// API to update a bill
-app.put('/api/bills/:id', (req, res) => {
+// API to update a bill - UPDATED
+app.put('/api/bills/:id', async (req, res) => {
     try {
-        const bills = JSON.parse(fs.readFileSync(billsFile));
-        const billIndex = bills.findIndex(b => b.id === req.params.id);
+        const updatedBill = req.body;
+        updatedBill.id = req.params.id; // Ensure ID remains the same
         
-        if (billIndex !== -1) {
-            const updatedBill = req.body;
-            updatedBill.id = req.params.id; // Ensure ID remains the same
-            
-            bills[billIndex] = updatedBill;
-            fs.writeFileSync(billsFile, JSON.stringify(bills, null, 2));
-            
-            res.json(updatedBill);
+        const result = await storage.updateBill(req.params.id, updatedBill);
+        
+        if (result) {
+            res.json(result);
         } else {
             res.status(404).json({ error: 'Bill not found' });
         }
@@ -188,14 +172,12 @@ app.put('/api/bills/:id', (req, res) => {
     }
 });
 
-// API to delete a bill
-app.delete('/api/bills/:id', (req, res) => {
+// API to delete a bill - UPDATED
+app.delete('/api/bills/:id', async (req, res) => {
     try {
-        const bills = JSON.parse(fs.readFileSync(billsFile));
-        const filteredBills = bills.filter(b => b.id !== req.params.id);
+        const success = await storage.deleteBill(req.params.id);
         
-        if (filteredBills.length < bills.length) {
-            fs.writeFileSync(billsFile, JSON.stringify(filteredBills, null, 2));
+        if (success) {
             res.json({ message: 'Bill deleted successfully' });
         } else {
             res.status(404).json({ error: 'Bill not found' });
@@ -207,10 +189,9 @@ app.delete('/api/bills/:id', (req, res) => {
 });
 
 // API to download a single bill as PDF
-app.get('/api/bills/:id/download', (req, res) => {
+app.get('/api/bills/:id/download', async (req, res) => {
     try {
-        const bills = JSON.parse(fs.readFileSync(billsFile));
-        const bill = bills.find(b => b.id === req.params.id);
+        const bill = await storage.getBillById(req.params.id);
         
         if (!bill) {
             return res.status(404).json({ error: 'Bill not found' });
@@ -592,8 +573,37 @@ app.get('/api/bill-settings', (req, res) => {
     }
 });
 
-// Start server
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-    console.log(`Open http://localhost:${PORT} in your browser`);
+// API to sync bills data (for initial import to Vercel KV)
+app.post('/api/sync-bills', async (req, res) => {
+    try {
+        const billsData = req.body;
+        
+        if (!Array.isArray(billsData)) {
+            return res.status(400).json({ error: 'Bills data must be an array' });
+        }
+        
+        if (process.env.VERCEL && kv) {
+            // On Vercel, store in KV
+            await kv.set('bills', billsData);
+        } else {
+            // Locally, write to file
+            fs.writeFileSync(billsFile, JSON.stringify(billsData, null, 2));
+        }
+        
+        res.json({ success: true, count: billsData.length });
+    } catch (error) {
+        console.error('Error syncing bills:', error);
+        res.status(500).json({ error: 'Failed to sync bills data' });
+    }
 });
+
+// Start server
+if (!process.env.VERCEL) {
+    app.listen(PORT, () => {
+        console.log(`Server running on port ${PORT}`);
+        console.log(`Open http://localhost:${PORT} in your browser`);
+    });
+}
+
+// Export for Vercel
+module.exports = app;

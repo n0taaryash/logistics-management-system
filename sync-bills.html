@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sync Bills Data</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f7fa;
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.1);
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            font-size: 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            display: block;
+            margin: 20px auto;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        #status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            display: none;
+        }
+        .success {
+            background-color: #e8f5e9;
+            color: #2ecc71;
+            border: 1px solid #2ecc71;
+        }
+        .error {
+            background-color: #ffebee;
+            color: #e74c3c;
+            border: 1px solid #e74c3c;
+        }
+        #billData {
+            width: 100%;
+            height: 200px;
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #dce4ec;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        .note {
+            font-size: 14px;
+            color: #7f8c8d;
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Bill Data Synchronization</h1>
+    <div class="container">
+        <h2>Import Existing Bills Data</h2>
+        <p>Use this utility to import your existing bills data to Vercel KV storage. This is typically needed only once after initial deployment.</p>
+        
+        <div class="note">
+            <strong>Note:</strong> If you're running this on your local machine, you'll see your existing bills data from your local file. 
+            If you're running this on Vercel, you can paste your bills data into the text area below.
+        </div>
+        
+        <textarea id="billData" placeholder="Paste your bills data here if running on Vercel..."></textarea>
+        
+        <button id="syncButton">Sync Bills Data</button>
+        
+        <div id="status"></div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async function() {
+            const syncButton = document.getElementById('syncButton');
+            const status = document.getElementById('status');
+            const billDataTextarea = document.getElementById('billData');
+            
+            // Try to load local bills data
+            try {
+                const response = await fetch('/api/bills');
+                if (response.ok) {
+                    const data = await response.json();
+                    billDataTextarea.value = JSON.stringify(data, null, 2);
+                }
+            } catch (error) {
+                console.error('Error loading bills:', error);
+            }
+            
+            syncButton.addEventListener('click', async function() {
+                try {
+                    let billsData;
+                    
+                    // Try to parse the data from the textarea
+                    try {
+                        billsData = JSON.parse(billDataTextarea.value);
+                    } catch (error) {
+                        throw new Error('Invalid JSON data. Please ensure you have valid JSON in the text area.');
+                    }
+                    
+                    // Make sure it's an array
+                    if (!Array.isArray(billsData)) {
+                        throw new Error('The data must be an array of bills.');
+                    }
+                    
+                    // Call the sync API
+                    const response = await fetch('/api/sync-bills', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(billsData)
+                    });
+                    
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || 'Failed to sync bills data');
+                    }
+                    
+                    const result = await response.json();
+                    
+                    // Show success message
+                    status.textContent = `Success! ${result.count} bills have been synced.`;
+                    status.className = 'success';
+                    status.style.display = 'block';
+                    
+                    setTimeout(() => {
+                        window.location.href = 'index.html';
+                    }, 3000);
+                    
+                } catch (error) {
+                    console.error('Error syncing bills:', error);
+                    
+                    // Show error message
+                    status.textContent = `Error: ${error.message}`;
+                    status.className = 'error';
+                    status.style.display = 'block';
+                }
+            });
+        });
+    </script>
+</body>
+</html>

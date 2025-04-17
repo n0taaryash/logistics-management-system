@@ -6,34 +6,42 @@
       "use": "@vercel/node"
     },
     {
-      "src": "index.html",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "bill-form.html",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "bill.html",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "settings.html",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "data/*",
+      "src": "*.html",
       "use": "@vercel/static"
     },
     {
       "src": "images/*",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "js/*.js",
       "use": "@vercel/static"
     }
   ],
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "server.js"
+      "dest": "/server.js"
+    },
+    {
+      "src": "/images/(.*)",
+      "dest": "/images/$1"
+    },
+    {
+      "src": "/js/(.*)",
+      "dest": "/js/$1"
+    },
+    {
+      "src": "^/bill.html(.*)",
+      "dest": "/bill.html"
+    },
+    {
+      "src": "^/bill-form.html(.*)",
+      "dest": "/bill-form.html"
+    },
+    {
+      "src": "^/settings.html(.*)",
+      "dest": "/settings.html"
     },
     {
       "src": "/(.*)",
