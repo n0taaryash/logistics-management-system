@@ -1,0 +1,21 @@
+# Enable URL rewriting
+RewriteEngine On
+
+# Handle API requests
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^api/bills/([^/]+)/download$ api/download_bill.php?id=$1 [QSA,L]
+RewriteRule ^api/bills/([^/]+)/delete$ api/delete_bill.php?id=$1 [QSA,L]
+RewriteRule ^api/bills/([^/]+)/edit$ bill-editor.php?id=$1 [QSA,L]
+RewriteRule ^api/bills/([^/]+)$ api/get_bill.php?id=$1 [QSA,L]
+RewriteRule ^api/bills$ api/get_bills.php [QSA,L]
+
+# Prevent directory listing
+Options -Indexes
+
+# Set default character set
+AddDefaultCharset UTF-8
+
+# PHP error handling
+php_flag display_errors on
+php_value error_reporting E_ALL

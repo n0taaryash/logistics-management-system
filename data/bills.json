@@ -1,25 +1,25 @@
 [
-  {
-    "id": "m9h93quo34HYC",
-    "toMs": "edXtra",
-    "billNo": "192008",
-    "date": "14.04.2025",
-    "createdAt": "2025-04-14T16:09:32.756Z",
-    "items": [
-      {
-        "srNo": 1,
-        "lrNo": "19",
-        "date": "14.04.2025",
-        "vehicleNo": "MH15 JD 7545",
-        "destination": "PUNE",
-        "invoiceNo": "192008",
-        "weight": "68",
-        "rate": "1000",
-        "extra": "0",
-        "total": "68000"
-      }
-    ],
-    "grandTotal": "68000",
-    "amountInWords": "SIXTY EIGHT THOUSAND ONLY"
-  }
+    {
+        "toMs": "edXtra",
+        "billNo": "ARC\/2025\/04\/001",
+        "date": "19.04.2025",
+        "grandTotal": "100000.00",
+        "amountInWords": "ONE LAKH ONLY",
+        "items": [
+            {
+                "srNo": 1,
+                "lrNo": "192008",
+                "date": "19.04.2025",
+                "vehicleNo": "MH 15 JD 7545",
+                "destination": "Pune",
+                "invoiceNo": "192008",
+                "weight": "1000",
+                "rate": "100",
+                "extra": "0",
+                "total": "100000.00"
+            }
+        ],
+        "id": "6803a271c56cc",
+        "createdAt": "2025-04-19T15:17:37+02:00"
+    }
 ]

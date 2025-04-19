@@ -1,8 +1,20 @@
 {
   "version": 2,
-  "rewrites": [
-    { "source": "/api/(.*)", "destination": "/server.js" },
-    { "source": "/(.*)", "destination": "/$1" }
-  ]
+  "functions": {
+    "api/*.php": {
+      "runtime": "vercel-php@0.5.2"
+    },
+    "*.php": {
+      "runtime": "vercel-php@0.5.2"
+    }
+  },
+  "routes": [
+    { "src": "/api/(.*)\\.php", "dest": "/api/$1.php" },
+    { "src": "/(.*)\\.php", "dest": "/$1.php" },
+    { "src": "/(.*)", "dest": "/index.php" }
+  ],
+  "env": {
+    "APP_ENV": "production",
+    "APP_DEBUG": "false"
+  }
 }
-
