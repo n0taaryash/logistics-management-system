@@ -1,41 +1,56 @@
 /**
  * API Service for Logistics Management System
- * Handles all server communications
+ * Handles all API calls to the server
  */
 
-const API_URL = 'http://localhost:3000/api';
+// Base URL for API calls - adapts to current environment
+const BASE_URL = window.location.origin;
 
 /**
  * Fetch all bills from the server
- * @returns {Promise<Array>} Array of bill objects
+ * @returns {Promise<Array>} Array of bills
  */
 async function fetchBills() {
     try {
-        const response = await fetch(`${API_URL}/bills`);
+        const response = await fetch(`${BASE_URL}/api/bills`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Cache-Control': 'no-cache'
+            },
+        });
+
         if (!response.ok) {
-            throw new Error(`HTTP error: ${response.status}`);
+            throw new Error(`HTTP error ${response.status}`);
         }
+
         return await response.json();
     } catch (error) {
         console.error('Error fetching bills:', error);
+        // Return empty array instead of throwing to prevent cascading errors
         return [];
     }
 }
 
 /**
- * Fetch a single bill by ID
+ * Fetch a bill by ID
  * @param {string} id - The bill ID
- * @returns {Promise<Object|null>} Bill object or null if not found
+ * @returns {Promise<Object|null>} The bill object or null if not found
  */
 async function fetchBillById(id) {
     try {
-        const response = await fetch(`${API_URL}/bills/${id}`);
+        const response = await fetch(`${BASE_URL}/api/bills/${id}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Cache-Control': 'no-cache'
+            },
+        });
+
         if (!response.ok) {
-            if (response.status === 404) {
-                return null;
-            }
-            throw new Error(`HTTP error: ${response.status}`);
+            throw new Error(`HTTP error ${response.status}`);
         }
+
         return await response.json();
     } catch (error) {
         console.error(`Error fetching bill ${id}:`, error);
@@ -45,27 +60,28 @@ async function fetchBillById(id) {
 
 /**
  * Create a new bill
- * @param {Object} billData - The bill data
- * @returns {Promise<Object|null>} Created bill object or null if failed
+ * @param {Object} billData - The bill data to create
+ * @returns {Promise<Object|null>} The created bill or null if error
  */
 async function createBill(billData) {
     try {
-        const response = await fetch(`${API_URL}/bills`, {
+        const response = await fetch(`${BASE_URL}/api/bills`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify(billData)
         });
-        
+
         if (!response.ok) {
-            throw new Error(`HTTP error: ${response.status}`);
+            const errorData = await response.json();
+            throw new Error(errorData.error || `HTTP error ${response.status}`);
         }
-        
+
         return await response.json();
     } catch (error) {
         console.error('Error creating bill:', error);
-        return null;
+        throw error; // Rethrow to allow form to handle the error
     }
 }
 
@@ -73,41 +89,50 @@ async function createBill(billData) {
  * Update an existing bill
  * @param {string} id - The bill ID
  * @param {Object} billData - The updated bill data
- * @returns {Promise<Object|null>} Updated bill object or null if failed
+ * @returns {Promise<Object|null>} The updated bill or null if error
  */
 async function updateBill(id, billData) {
     try {
-        const response = await fetch(`${API_URL}/bills/${id}`, {
+        const response = await fetch(`${BASE_URL}/api/bills/${id}`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify(billData)
         });
-        
+
         if (!response.ok) {
-            throw new Error(`HTTP error: ${response.status}`);
+            const errorData = await response.json();
+            throw new Error(errorData.error || `HTTP error ${response.status}`);
         }
-        
+
         return await response.json();
     } catch (error) {
         console.error(`Error updating bill ${id}:`, error);
-        return null;
+        throw error; // Rethrow to allow form to handle the error
     }
 }
 
 /**
  * Delete a bill
- * @param {string} id - The bill ID
- * @returns {Promise<boolean>} True if deleted successfully, false otherwise
+ * @param {string} id - The bill ID to delete
+ * @returns {Promise<boolean>} True if successfully deleted
  */
 async function deleteBill(id) {
     try {
-        const response = await fetch(`${API_URL}/bills/${id}`, {
-            method: 'DELETE'
+        const response = await fetch(`${BASE_URL}/api/bills/${id}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            }
         });
-        
-        return response.ok;
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `HTTP error ${response.status}`);
+        }
+
+        return true;
     } catch (error) {
         console.error(`Error deleting bill ${id}:`, error);
         return false;
@@ -115,147 +140,65 @@ async function deleteBill(id) {
 }
 
 /**
- * Generate current bill number based on date and count
- * @returns {Promise<string>} Generated bill number
+ * Generate a new bill number based on existing bills
+ * @returns {Promise<string>} A new bill number
  */
 async function generateBillNumber() {
     try {
         const bills = await fetchBills();
-        const date = new Date();
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
         
-        // Count bills for current month
-        const prefix = `ARC/${year}/${month}`;
-        const monthBills = bills.filter(bill => bill.billNo.startsWith(prefix));
-        const count = monthBills.length + 1;
+        // If no bills or error fetching, start with default
+        if (!bills || bills.length === 0) {
+            const currentDate = new Date();
+            const year = currentDate.getFullYear();
+            return `ARC/${year}/001`;
+        }
         
-        return `${prefix}/${String(count).padStart(3, '0')}`;
+        // Find latest bill number with format ARC/YYYY/NNN
+        const billNumbers = bills
+            .map(bill => bill.billNo)
+            .filter(billNo => /^ARC\/\d{4}\/\d{3}$/.test(billNo));
+        
+        if (billNumbers.length === 0) {
+            const currentDate = new Date();
+            const year = currentDate.getFullYear();
+            return `ARC/${year}/001`;
+        }
+        
+        // Sort in descending order to get the latest
+        billNumbers.sort().reverse();
+        const latestBillNo = billNumbers[0];
+        
+        // Extract parts
+        const parts = latestBillNo.split('/');
+        const year = new Date().getFullYear();
+        const currentYear = parts[1];
+        let number = parseInt(parts[2]);
+        
+        // If year changed, reset number
+        if (currentYear != year) {
+            number = 0;
+        }
+        
+        // Increment and pad with zeros
+        number++;
+        const paddedNumber = number.toString().padStart(3, '0');
+        
+        return `ARC/${year}/${paddedNumber}`;
     } catch (error) {
         console.error('Error generating bill number:', error);
-        const date = new Date();
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        return `ARC/${year}/${month}/001`;
+        // Fallback to timestamp-based number if all else fails
+        const timestamp = Date.now().toString().substr(-6);
+        return `ARC/${timestamp}`;
     }
 }
 
-/**
- * Download a bill as PDF
- * @param {string} id - The bill ID
- */
-async function downloadBillAsPDF(id) {
-    try {
-        const bill = await fetchBillById(id);
-        if (!bill) {
-            throw new Error('Bill not found');
-        }
-        
-        // Create an iframe to render the bill for PDF download
-        const iframe = document.createElement('iframe');
-        iframe.style.display = 'none';
-        document.body.appendChild(iframe);
-        
-        iframe.onload = function() {
-            // After the bill is loaded, trigger the print dialog with Save as PDF option
-            setTimeout(() => {
-                iframe.contentWindow.print();
-                setTimeout(() => {
-                    document.body.removeChild(iframe);
-                }, 2000);
-            }, 1000);
-        };
-        
-        // Load the bill page in the iframe
-        iframe.src = `bill.html?id=${id}&download=true`;
-    } catch (error) {
-        console.error(`Error downloading bill ${id}:`, error);
-        alert('Failed to download the bill. Please try again.');
-    }
-}
-
-/**
- * Bulk download multiple bills as a zip file
- * @param {Array<string>} ids - Array of bill IDs to download
- */
-async function downloadMultipleBills(ids) {
-    try {
-        if (!ids || ids.length === 0) {
-            throw new Error('No bills selected for download');
-        }
-        
-        // Create a hidden form to submit for bulk download
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = `${API_URL}/bills/download`;
-        form.style.display = 'none';
-        
-        // Add bill IDs as form inputs
-        ids.forEach(id => {
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = 'ids[]';
-            input.value = id;
-            form.appendChild(input);
-        });
-        
-        document.body.appendChild(form);
-        form.submit();
-        
-        setTimeout(() => {
-            document.body.removeChild(form);
-        }, 2000);
-    } catch (error) {
-        console.error('Error downloading multiple bills:', error);
-        alert('Failed to download the selected bills. Please try again.');
-    }
-}
-
-/**
- * Generate a printable HTML version of a bill
- * @param {Object} bill - The bill data
- * @returns {string} HTML content for the bill
- */
-function generateBillHTML(bill) {
-    if (!bill) return '';
-    
-    return `
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Bill ${bill.billNo}</title>
-            <style>
-                /* Include all the necessary styles for printing */
-                body {
-                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                    margin: 0;
-                    padding: 0;
-                    width: 210mm;
-                    height: 297mm;
-                    box-sizing: border-box;
-                    background-color: #ffffff;
-                }
-                .invoice {
-                    padding: 10mm 8mm;
-                    height: 100%;
-                    box-sizing: border-box;
-                    background-color: #ffffff;
-                }
-                .header {
-                    text-align: center;
-                    margin-bottom: 12px;
-                    padding-bottom: 10px;
-                    border-bottom: 3px solid #2c3e50;
-                }
-                /* Include remaining styles... */
-            </style>
-        </head>
-        <body>
-            <div class="invoice">
-                <!-- Generate the complete bill HTML structure -->
-                <!-- ... -->
-            </div>
-        </body>
-        </html>
-    `;
-}
+// Export all functions
+window.apiService = {
+    fetchBills,
+    fetchBillById,
+    createBill,
+    updateBill,
+    deleteBill,
+    generateBillNumber
+};
