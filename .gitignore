@@ -24,8 +24,13 @@ dist/
 .next/
 out/
 
-# Data folders (if you want to exclude them)
+# Don't exclude data folder for Vercel deployment
 # data/
+
+# Debug logs
+npm-debug.log
+.pnpm-debug.log
+.DS_Store
 
 # OS generated files
 .DS_Store

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vercel Deployment Debug</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        h1 {
+            color: #2c3e50;
+        }
+        pre {
+            background: #f5f7fa;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .status {
+            margin-top: 20px;
+        }
+        .success {
+            color: green;
+        }
+        .error {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <h1>Vercel Deployment Debug</h1>
+    
+    <p>This page helps diagnose common Vercel deployment issues.</p>
+    
+    <button id="testApi">Test API Connection</button>
+    <button id="testStatic">Test Static Assets</button>
+    
+    <div class="status" id="apiStatus"></div>
+    <div class="status" id="staticStatus"></div>
+    
+    <h2>Environment Info:</h2>
+    <pre id="envInfo">Loading...</pre>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const apiStatus = document.getElementById('apiStatus');
+            const staticStatus = document.getElementById('staticStatus');
+            const envInfo = document.getElementById('envInfo');
+            
+            // Test API endpoint
+            document.getElementById('testApi').addEventListener('click', async function() {
+                apiStatus.innerHTML = "Testing API connection...";
+                apiStatus.className = "status";
+                
+                try {
+                    const response = await fetch('/api/debug');
+                    if (!response.ok) {
+                        throw new Error(`HTTP error ${response.status}`);
+                    }
+                    const data = await response.json();
+                    apiStatus.innerHTML = "✅ API connection successful: " + JSON.stringify(data);
+                    apiStatus.className = "status success";
+                } catch (error) {
+                    apiStatus.innerHTML = "❌ API connection failed: " + error.message;
+                    apiStatus.className = "status error";
+                }
+            });
+            
+            // Test static assets
+            document.getElementById('testStatic').addEventListener('click', async function() {
+                staticStatus.innerHTML = "Testing static asset loading...";
+                staticStatus.className = "status";
+                
+                try {
+                    const img = new Image();
+                    const testUrl = '/favicon.ico'; // Adjust if you have a different test asset
+                    
+                    img.onload = function() {
+                        staticStatus.innerHTML = "✅ Static asset loaded successfully";
+                        staticStatus.className = "status success";
+                    };
+                    
+                    img.onerror = function() {
+                        staticStatus.innerHTML = "❌ Static asset failed to load";
+                        staticStatus.className = "status error";
+                    };
+                    
+                    img.src = testUrl + '?t=' + Date.now(); // Cache-busting
+                } catch (error) {
+                    staticStatus.innerHTML = "❌ Error testing static assets: " + error.message;
+                    staticStatus.className = "status error";
+                }
+            });
+            
+            // Display environment info
+            function displayEnvironmentInfo() {
+                const info = {
+                    url: window.location.href,
+                    userAgent: navigator.userAgent,
+                    screenSize: `${window.innerWidth}x${window.innerHeight}`,
+                    time: new Date().toISOString()
+                };
+                
+                envInfo.textContent = JSON.stringify(info, null, 2);
+            }
+            
+            displayEnvironmentInfo();
+        });
+    </script>
+</body>
+</html>

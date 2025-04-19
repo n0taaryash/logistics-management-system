@@ -604,6 +604,47 @@ app.post('/api/sync-bills', async (req, res) => {
     }
 });
 
+// Add proper error handling middleware at the end of your middleware chain
+app.use((err, req, res, next) => {
+  console.error('Server error:', err.stack);
+  res.status(500).json({
+    error: 'Internal Server Error',
+    message: process.env.NODE_ENV === 'production' ? 'Something went wrong' : err.message
+  });
+});
+
+// Make sure paths work on Vercel
+if (!fs.existsSync(dataDir) && !process.env.VERCEL) {
+  try {
+    fs.mkdirSync(dataDir, { recursive: true });
+  } catch (err) {
+    console.error('Failed to create data directory:', err);
+  }
+}
+
+// Initialize bills file for local development only
+if (!fs.existsSync(billsFile) && !process.env.VERCEL) {
+  try {
+    fs.writeFileSync(billsFile, JSON.stringify([]));
+  } catch (err) {
+    console.error('Failed to initialize bills file:', err);
+  }
+}
+
+// Add debug route to check Vercel deployment status
+app.get('/api/debug', (req, res) => {
+  res.json({
+    status: 'ok',
+    nodeEnv: process.env.NODE_ENV,
+    vercel: Boolean(process.env.VERCEL),
+    time: new Date().toISOString(),
+    directories: {
+      dataExists: fs.existsSync(dataDir),
+      billsFileExists: fs.existsSync(billsFile)
+    }
+  });
+});
+
 // Start server
 if (!process.env.VERCEL) {
     app.listen(PORT, () => {

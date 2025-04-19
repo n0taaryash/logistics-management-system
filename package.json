@@ -3,9 +3,13 @@
   "version": "1.0.0",
   "description": "A logistics management system with bill generation and storage",
   "main": "server.js",
+  "engines": {
+    "node": ">=14.x"
+  },
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "vercel-build": "echo 'Build step complete'"
   },
   "author": "",
   "license": "ISC",
