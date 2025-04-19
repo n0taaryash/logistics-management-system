@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vercel Deployment Info</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            color: #333;
+        }
+        h1 {
+            color: #0070f3;
+        }
+        .info-box {
+            background-color: #f6f8fa;
+            border: 1px solid #e1e4e8;
+            border-radius: 6px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+        pre {
+            background-color: #f1f1f1;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .button {
+            display: inline-block;
+            background-color: #0070f3;
+            color: white;
+            padding: 8px 16px;
+            text-decoration: none;
+            border-radius: 4px;
+            margin-right: 8px;
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Vercel Deployment Status</h1>
+    
+    <div class="info-box">
+        <h2>Environment Information</h2>
+        <pre id="env-info">Loading...</pre>
+    </div>
+    
+    <div class="info-box">
+        <h2>Available Routes</h2>
+        <p>Try accessing these routes to verify they're working:</p>
+        
+        <a href="/" class="button">Home</a>
+        <a href="/index.html" class="button">Index HTML</a>
+        <a href="/debug.html" class="button">Debug Page</a>
+        <a href="/api/health" class="button">API Health</a>
+    </div>
+    
+    <div class="info-box">
+        <h2>Routing Tests</h2>
+        <div id="route-tests">
+            <button id="test-api" class="button">Test API</button>
+            <button id="test-static" class="button">Test Static</button>
+        </div>
+        <div id="test-results"></div>
+    </div>
+    
+    <script>
+        // Display environment info
+        document.getElementById('env-info').textContent = JSON.stringify({
+            url: window.location.href,
+            host: window.location.host,
+            pathname: window.location.pathname,
+            userAgent: navigator.userAgent,
+            timestamp: new Date().toISOString()
+        }, null, 2);
+        
+        // Test API endpoint
+        document.getElementById('test-api').addEventListener('click', async () => {
+            const results = document.getElementById('test-results');
+            results.innerHTML = '<p>Testing API connection...</p>';
+            
+            try {
+                const response = await fetch('/api/health');
+                const contentType = response.headers.get('content-type');
+                
+                if (response.ok) {
+                    const data = contentType && contentType.includes('application/json') 
+                        ? await response.json() 
+                        : await response.text();
+                    
+                    results.innerHTML = `
+                        <p style="color: green;">✅ API Test Successful</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                } else {
+                    results.innerHTML = `
+                        <p style="color: red;">❌ API Error: ${response.status} ${response.statusText}</p>
+                    `;
+                }
+            } catch (error) {
+                results.innerHTML = `
+                    <p style="color: red;">❌ API Connection Error: ${error.message}</p>
+                `;
+            }
+        });
+        
+        // Test static file loading
+        document.getElementById('test-static').addEventListener('click', async () => {
+            const results = document.getElementById('test-results');
+            results.innerHTML = '<p>Testing static file loading...</p>';
+            
+            const img = new Image();
+            const timestamp = Date.now();
+            
+            img.onload = () => {
+                results.innerHTML = `
+                    <p style="color: green;">✅ Static file loaded successfully</p>
+                    <img src="/favicon.ico?t=${timestamp}" alt="Favicon" style="width: 32px; height: 32px;">
+                `;
+            };
+            
+            img.onerror = () => {
+                results.innerHTML = `
+                    <p style="color: red;">❌ Failed to load static file</p>
+                `;
+            };
+            
+            img.src = `/favicon.ico?t=${timestamp}`;
+        });
+    </script>
+</body>
+</html>
