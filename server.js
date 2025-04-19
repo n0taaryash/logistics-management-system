@@ -101,10 +101,45 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
+// Ensure we're properly handling Vercel's serverless environment
+const isVercel = process.env.VERCEL === '1';
+
+// Use in-memory storage for bills when on Vercel
+let inMemoryBills = [];
+
+// Adjust bill storage logic for Vercel
+async function getBills() {
+  if (isVercel) {
+    return inMemoryBills;
+  } else {
+    try {
+      return JSON.parse(fs.readFileSync(billsFile));
+    } catch (error) {
+      console.error('Error reading bills file:', error);
+      return [];
+    }
+  }
+}
+
+async function saveBills(bills) {
+  if (isVercel) {
+    inMemoryBills = bills;
+    return true;
+  } else {
+    try {
+      fs.writeFileSync(billsFile, JSON.stringify(bills, null, 2));
+      return true;
+    } catch (error) {
+      console.error('Error writing bills file:', error);
+      return false;
+    }
+  }
+}
+
 // API to get all bills - UPDATED
 app.get('/api/bills', async (req, res) => {
     try {
-        const bills = await storage.getAllBills();
+        const bills = await getBills();
         res.json(bills);
     } catch (error) {
         console.error('Error reading bills:', error);
@@ -131,6 +166,7 @@ app.get('/api/bills/:id', async (req, res) => {
 // API to create a new bill - UPDATED
 app.post('/api/bills', async (req, res) => {
     try {
+        const bills = await getBills();
         const newBill = req.body;
         
         // Add timestamp if not provided
@@ -143,17 +179,10 @@ app.post('/api/bills', async (req, res) => {
             newBill.id = Date.now().toString(36) + Math.random().toString(36).substr(2, 5).toUpperCase();
         }
         
-        // Set default checked by and prepared by if not provided
-        if (!newBill.checkedBy) {
-            newBill.checkedBy = 'ADMIN';
-        }
+        bills.push(newBill);
+        await saveBills(bills);
         
-        if (!newBill.preparedBy) {
-            newBill.preparedBy = 'ARC';
-        }
-        
-        const savedBill = await storage.saveBill(newBill);
-        res.status(201).json(savedBill);
+        res.status(201).json(newBill);
     } catch (error) {
         console.error('Error saving bill:', error);
         res.status(500).json({ error: 'Failed to save bill' });
@@ -645,13 +674,35 @@ app.get('/api/debug', (req, res) => {
   });
 });
 
-// Start server
-if (!process.env.VERCEL) {
-    app.listen(PORT, () => {
-        console.log(`Server running on port ${PORT}`);
-        console.log(`Open http://localhost:${PORT} in your browser`);
-    });
-}
+// Add a simple health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
 
-// Export for Vercel
+// Add debug route with more details
+app.get('/api/debug', (req, res) => {
+  res.json({
+    status: 'ok',
+    environment: {
+      nodeEnv: process.env.NODE_ENV || 'not set',
+      vercel: Boolean(process.env.VERCEL)
+    },
+    time: new Date().toISOString(),
+    requestInfo: {
+      headers: req.headers,
+      path: req.path,
+      method: req.method
+    }
+  });
+});
+
+// Ensure module exports for Vercel
 module.exports = app;
+
+// Only listen on a port when not on Vercel
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+    console.log(`Open http://localhost:${PORT} in your browser`);
+  });
+}

@@ -118,6 +118,65 @@
             }
             
             displayEnvironmentInfo();
+            
+            // Add test for direct API endpoints
+            const apiTests = [
+                { name: 'Test API Debug', url: '/api/debug' },
+                { name: 'Test API Health', url: '/api/health' }
+            ];
+            
+            // Create test buttons
+            apiTests.forEach(test => {
+                const button = document.createElement('button');
+                button.textContent = test.name;
+                button.style.marginRight = '10px';
+                button.style.marginTop = '10px';
+                
+                button.addEventListener('click', async function() {
+                    apiStatus.innerHTML = `Testing ${test.name}...`;
+                    apiStatus.className = "status";
+                    
+                    try {
+                        const response = await fetch(test.url);
+                        let resultText = `Status: ${response.status} ${response.statusText}`;
+                        
+                        if (response.headers.get('content-type')?.includes('application/json')) {
+                            const data = await response.json();
+                            resultText += `<br>Data: <pre>${JSON.stringify(data, null, 2)}</pre>`;
+                        } else {
+                            const text = await response.text();
+                            resultText += `<br>Text: ${text.substring(0, 100)}${text.length > 100 ? '...' : ''}`;
+                        }
+                        
+                        apiStatus.innerHTML = `✅ ${test.name} successful:<br>${resultText}`;
+                        apiStatus.className = "status success";
+                    } catch (error) {
+                        apiStatus.innerHTML = `❌ ${test.name} failed: ${error.message}`;
+                        apiStatus.className = "status error";
+                    }
+                });
+                
+                document.body.insertBefore(button, document.getElementById('apiStatus'));
+            });
+            
+            // Add connection info
+            const connectionInfo = {
+                online: navigator.onLine,
+                connection: navigator.connection ? {
+                    downlink: navigator.connection.downlink,
+                    effectiveType: navigator.connection.effectiveType,
+                    rtt: navigator.connection.rtt,
+                    saveData: navigator.connection.saveData
+                } : 'Not available'
+            };
+            
+            envInfo.textContent = JSON.stringify({
+                url: window.location.href,
+                userAgent: navigator.userAgent,
+                screenSize: `${window.innerWidth}x${window.innerHeight}`,
+                connection: connectionInfo,
+                time: new Date().toISOString()
+            }, null, 2);
         });
     </script>
 </body>
