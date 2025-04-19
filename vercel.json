@@ -42,5 +42,27 @@
         { "key": "Access-Control-Allow-Headers", "value": "Content-Type" }
       ]
     }
-  ]
+  ],
+  "functions": {
+    "api/*.php": {
+      "runtime": "vercel-php@0.6.0"
+    },
+    "v1/*.php": {
+      "runtime": "vercel-php@0.6.0"
+    },
+    "v1/**/*.php": {
+      "runtime": "vercel-php@0.6.0"
+    }
+  },
+  "routes": [
+    { "src": "/api/(.*)\\.php", "dest": "/api/$1.php" },
+    { "src": "/v1/api/(.*)\\.php", "dest": "/v1/api/$1.php" },
+    { "src": "/v1/(.*)\\.php", "dest": "/v1/$1.php" },
+    { "src": "/", "dest": "/v1/index.php" },
+    { "src": "/(.*)", "dest": "/v1/$1" }
+  ],
+  "env": {
+    "APP_ENV": "production",
+    "APP_DEBUG": "false"
+  }
 }

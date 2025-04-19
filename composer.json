@@ -1,0 +1,8 @@
+{
+  "name": "logistics-management-system",
+  "description": "A logistics management system with bill generation",
+  "require": {
+    "php": "^7.4|^8.0",
+    "ext-json": "*"
+  }
+}
