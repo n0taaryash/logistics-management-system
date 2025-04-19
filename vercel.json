@@ -24,15 +24,44 @@
   ],
   "routes": [
     {
-      "handle": "filesystem"
-    },
-    {
       "src": "/api/(.*)",
       "dest": "/server.js"
     },
     {
+      "src": "/js/(.*)",
+      "dest": "/js/$1"
+    },
+    {
+      "src": "/images/(.*)",
+      "dest": "/images/$1"
+    },
+    {
+      "src": "/bill.html",
+      "dest": "/bill.html"
+    },
+    {
+      "src": "/bill-form.html",
+      "dest": "/bill-form.html"
+    },
+    {
+      "src": "/settings.html",
+      "dest": "/settings.html"
+    },
+    {
+      "src": "/debug.html",
+      "dest": "/debug.html"
+    },
+    {
+      "src": "/sync-bills.html",
+      "dest": "/sync-bills.html"
+    },
+    {
+      "src": "/",
+      "dest": "/index.html"
+    },
+    {
       "src": "/(.*)",
-      "dest": "/$1"
+      "dest": "/index.html"
     }
   ],
   "headers": [
